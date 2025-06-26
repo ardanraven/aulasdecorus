@@ -18,21 +18,45 @@
         body { background-color: #0f172a; }
         .font-fancy { font-family: 'Cinzel', serif; }
         .font-sans { font-family: 'Inter', sans-serif; }
-        .animate-spin-slow { animation: spin 3s linear infinite; }
         .animate-fade-in { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .glass-effect { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.4); }
         
-        /* NOVO: Estilo para o canvas de partículas */
         #particle-canvas {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 0; /* Coloca o canvas atrás de todo o conteúdo */
-            pointer-events: none; /* Garante que o canvas não interfere com cliques */
+            z-index: 0;
+            pointer-events: none;
         }
+
+        /* Animação do Pentagrama */
+        .pentagram-path {
+            stroke: #a5b4fc; /* indigo-300 */
+            stroke-width: 2;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: draw-pentagram 2.5s ease-in-out forwards;
+        }
+        @keyframes draw-pentagram {
+            to { stroke-dashoffset: 0; }
+        }
+        
+        /* Animação das Fases da Lua */
+        .moon-phase {
+            opacity: 0;
+            transform: scale(0.8);
+            animation: appear 0.8s ease-out forwards;
+        }
+        @keyframes appear {
+            to { opacity: 1; transform: scale(1); }
+        }
+        #moon-3 { animation-delay: 0.5s; } /* Lua Cheia */
+        #moon-2, #moon-4 { animation-delay: 1.0s; } /* Crescentes */
+        #moon-1, #moon-5 { animation-delay: 1.5s; } /* Novas */
+
 
         .prose-custom {
             white-space: pre-wrap; 
@@ -51,7 +75,6 @@
     <!-- Fundo de estrelas estático -->
     <div class="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 z-0"></div>
     
-    <!-- NOVO: Canvas para as partículas animadas -->
     <canvas id="particle-canvas"></canvas>
 
     <!-- Conteúdo principal da aplicação -->
@@ -60,7 +83,7 @@
     <!-- Firebase SDKs (Versão Atualizada) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, getDocs, where, limit, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, getDocs, where, limit, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // CONFIGURAÇÃO DO FIREBASE
         const firebaseConfig = {
@@ -85,9 +108,21 @@
             'vip-lux-2-3': 'VIP LUX II & III - Soror B.N.HellLux'
         };
 
+        const ICONS = {
+            'vip-bruxaria-luna': `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block mr-2 text-purple-400"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+            'vip-magia-oriental-akane': `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block mr-2 text-purple-400"><path d="M20.3 20.3c.2-.2.2-.5 0-.7l-6-6c-.2-.2-.5-.2-.7 0l-1.4 1.4c-.2.2-.2.5 0 .7l6 6c.2.2.5.2.7 0Z"/><path d="M3.7 3.7c-.2.2-.2.5 0 .7l6 6c.2.2.5.2.7 0l1.4-1.4c.2-.2.2-.5 0-.7l-6-6c-.2-.2-.5-.2-.7 0Z"/><path d="m11.3 2.3-2.1 2.1c-.2.2-.2.5 0 .7l2.8 2.8c.2.2.5.2.7 0l2.1-2.1c.2-.2.2-.5 0-.7l-2.8-2.8c-.2-.2-.5-.2-.7 0Z"/><path d="M2.3 11.3 4.4 9.2c.2-.2.5-.2.7 0l2.8 2.8c.2.2.2.5 0 .7l-2.1 2.1c-.2.2-.5.2-.7 0l-2.8-2.8c-.2-.2-.2-.5 0-.7Z"/><path d="m12.7 21.7 2.1-2.1c.2-.2.2-.5 0-.7l-2.8-2.8c-.2-.2-.5-.2-.7 0l-2.1 2.1c-.2.2-.2.5 0 .7l2.8 2.8c.2.2.5.2.7 0Z"/><path d="M21.7 12.7 19.6 14.8c-.2.2-.5.2-.7 0l-2.8-2.8c-.2-.2-.2-.5 0-.7l2.1-2.1c.2-.2.5-.2.7 0l2.8 2.8c.2.2.2.5 0 .7Z"/></svg>`,
+            'vip-oraculos-amicta-solle': `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block mr-2 text-purple-400"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+            'vip-mediunidades': `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block mr-2 text-purple-400"><path d="M21 12a9 9 0 1 1-6.2-8.7"/><path d="M16 4a9 9 0 0 0-8 8"/><path d="M12 21a9 9 0 0 0 8-8"/></svg>`,
+            'magia-planetaria-max': `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block mr-2 text-purple-400"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="9"/></svg>`,
+            'magia-goecia-max': `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block mr-2 text-purple-400"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9.1 9.1 5.8 5.8"/><path d="m14.9 9.1-5.8 5.8"/></svg>`,
+            'vip-lux-1': `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block mr-2 text-purple-400"><path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M12 20v2"/><path d="m4.93 19.07 1.41-1.41"/><path d="M4 12H2"/><path d="m19.07 19.07-1.41-1.41"/><circle cx="12" cy="12" r="5"/></svg>`,
+            'vip-lux-2-3': `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block mr-2 text-purple-400"><path d="M12 3v2.35"/><path d="m16.24 7.76.35-.35"/><path d="M20.65 12H18.3"/><path d="m16.24 16.24.35.35"/><path d="M12 20.65V18.3"/><path d="m7.76 16.24-.35.35"/><path d="M3.35 12H5.7"/><path d="m7.76 7.76-.35-.35"/><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>`,
+        };
+
         const appIdName = 'default-grimorio-pago-html';
         const appContainer = document.getElementById('app-container');
         let db, currentUser = null, currentClasses = [], isAdminPanelVisible = false, confirmationTimeout = null;
+        let scrollListener = null;
 
         const simpleHash = (str) => {
             let hash = 0;
@@ -119,7 +154,7 @@
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                setupParticleCanvas(); // Inicia a animação de partículas
+                setupParticleCanvas(); 
                 await setupInitialAdminUser();
                 render(LoginView());
             } catch (error) {
@@ -133,7 +168,26 @@
             attachEventListeners();
         };
         
-        const LoginView = (error = '', loading = false) => `
+        const PreloaderView = () => `
+            <div class="flex flex-col items-center justify-center min-h-[90vh] text-purple-300 animate-fade-in">
+                <h1 class="text-4xl lg:text-5xl font-fancy text-purple-200">Aulas Vips Decorus</h1>
+                <p class="text-sm text-slate-400 mt-2 tracking-widest">by TripliceStudios</p>
+                
+                <svg class="w-24 h-24 mt-8" viewBox="-2 -2 60 56" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path class="pentagram-path" d="M28,2 L10,50 L54,18 L2,18 L46,50 Z" />
+                </svg>
+
+                <div class="flex items-center justify-center space-x-2 mt-6">
+                    <svg id="moon-1" class="moon-phase w-8 h-8" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" stroke="#475569" stroke-width="2" fill="none"></circle></svg>
+                    <svg id="moon-2" class="moon-phase w-8 h-8" viewBox="0 0 32 32"><defs><clipPath id="crescent-left"><rect x="0" y="0" width="12" height="32"></rect></clipPath></defs><circle cx="16" cy="16" r="14" fill="#fef08a"></circle><circle cx="16" cy="16" r="14" fill="#1e293b" clip-path="url(#crescent-left)"></circle></svg>
+                    <svg id="moon-3" class="moon-phase w-8 h-8" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#fef08a"></circle></svg>
+                    <svg id="moon-4" class="moon-phase w-8 h-8" viewBox="0 0 32 32"><defs><clipPath id="crescent-right"><rect x="20" y="0" width="12" height="32"></rect></clipPath></defs><circle cx="16" cy="16" r="14" fill="#fef08a"></circle><circle cx="16" cy="16" r="14" fill="#1e293b" clip-path="url(#crescent-right)"></circle></svg>
+                    <svg id="moon-5" class="moon-phase w-8 h-8" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" stroke="#475569" stroke-width="2" fill="none"></circle></svg>
+                </div>
+            </div>
+        `;
+
+        const LoginView = (error = '') => `
             <div class="flex items-center justify-center min-h-[90vh]">
                 <div class="w-full max-w-md p-8 space-y-6 rounded-2xl shadow-2xl shadow-purple-950/40 glass-effect">
                     <div class="text-center">
@@ -144,9 +198,7 @@
                         ${error ? `<p class="bg-red-900/50 text-red-300 border border-red-700 p-3 rounded-lg text-center font-semibold">${error}</p>` : ''}
                         <input name="email" type="email" required class="w-full px-4 py-3 text-gray-200 bg-slate-800/80 rounded-lg" placeholder="seu.email@arcano.com" />
                         <input name="password" type="password" required class="w-full px-4 py-3 text-gray-200 bg-slate-800/80 rounded-lg" placeholder="••••••••" />
-                        <button type="submit" ${loading ? 'disabled' : ''} class="w-full py-3 font-bold text-lg text-white bg-purple-700 rounded-lg hover:bg-purple-800 transition disabled:bg-slate-600">
-                            ${loading ? 'Invocando...' : 'Entrar'}
-                        </button>
+                        <button type="submit" class="w-full py-3 font-bold text-lg text-white bg-purple-700 rounded-lg hover:bg-purple-800 transition disabled:bg-slate-600">Entrar</button>
                     </form>
                 </div>
             </div>
@@ -165,11 +217,20 @@
                 <div id="classes-grid" class="space-y-12 mt-8">
                      ${Object.keys(SESSIONS).filter(key => currentUser?.isAdmin || currentUser?.accessibleSections?.includes(key)).map(sessionId => `
                         <div>
-                            <h2 class="text-2xl font-fancy text-purple-300 border-b-2 border-purple-800/50 pb-2 mb-6">${SESSIONS[sessionId]}</h2>
+                            <h2 class="flex items-center text-2xl font-fancy text-purple-300 border-b-2 border-purple-800/50 pb-2 mb-6">${ICONS[sessionId] || ''} ${SESSIONS[sessionId]}</h2>
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 ${currentClasses.filter(c => c.sectionId === sessionId).map(c => `
                                     <div data-class-id="${c.id}" class="class-card group relative p-6 rounded-xl shadow-lg cursor-pointer transition-all duration-300 hover:shadow-purple-800/40 hover:-translate-y-2 glass-effect">
-                                        ${currentUser?.isAdmin ? `<button data-delete-id="${c.id}" class="delete-post-btn absolute top-2 right-2 p-1.5 rounded-full text-white hover:bg-red-700">✖</button>` : ''}
+                                        <div class="absolute top-2 right-2 flex gap-2">
+                                            ${!currentUser?.isAdmin ? ((currentUser?.completedClasses || []).includes(c.id) ? 
+                                                `<span title="Aula concluída"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-yellow-400"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>` : 
+                                                `<span title="Aula pendente"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-slate-600"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>`
+                                            ) : ''}
+                                            ${currentUser?.isAdmin ? `
+                                                <button data-edit-id="${c.id}" class="edit-post-btn bg-slate-700/80 p-1.5 rounded-full text-white hover:bg-blue-700 transition leading-none text-xs">✏️</button>
+                                                <button data-delete-id="${c.id}" class="delete-post-btn bg-slate-700/80 p-1.5 rounded-full text-white hover:bg-red-700 transition leading-none text-xs">✖</button>
+                                            ` : ''}
+                                        </div>
                                         <h3 class="text-xl font-fancy text-purple-300 mb-2">${c.title}</h3>
                                         <p class="text-slate-400 font-sans">${c.description}</p>
                                     </div>
@@ -227,20 +288,70 @@
             </div>
         `;
 
+        const EditPostView = (post) => `
+            <div class="max-w-4xl mx-auto animate-fade-in">
+                 <button id="back-to-dashboard" class="mb-8 px-4 py-2 font-semibold text-purple-200 bg-slate-800/80 rounded-lg hover:bg-slate-700"> &larr; Voltar ao Grimório</button>
+                 <div class="p-6 rounded-xl glass-effect border-blue-700/50">
+                    <h2 class="text-2xl font-fancy text-blue-300 mb-6">Editando Feitiço</h2>
+                    <form id="edit-post-form" data-post-id="${post.id}" class="space-y-4">
+                        <select name="post-section" required class="w-full p-2 bg-slate-800 rounded-lg">
+                            ${Object.keys(SESSIONS).map(key => `<option value="${key}" ${post.sectionId === key ? 'selected' : ''}>${SESSIONS[key]}</option>`).join('')}
+                        </select>
+                        <input name="post-title" type="text" required value="${post.title}" placeholder="Título do Feitiço" class="w-full px-4 py-2 bg-slate-800 rounded-lg" />
+                        <input name="post-description" type="text" required value="${post.description}" placeholder="Descrição curta" class="w-full px-4 py-2 bg-slate-800 rounded-lg" />
+                        <textarea name="post-content" required placeholder="Conteúdo" class="w-full px-4 py-2 bg-slate-800 rounded-lg prose-custom h-64">${post.content}</textarea>
+                        <div class="flex gap-4">
+                            <button type="button" id="cancel-edit-btn" class="w-full px-6 py-2 font-semibold text-white bg-slate-600 rounded-lg hover:bg-slate-700">Cancelar</button>
+                            <button type="submit" class="w-full px-6 py-2 font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">Guardar Alterações</button>
+                        </div>
+                    </form>
+                 </div>
+            </div>
+        `;
+
          const ClassDetailView = (classItem) => `
             <div class="max-w-4xl mx-auto animate-fade-in">
                 <button id="back-to-dashboard" class="mb-8 px-4 py-2 font-semibold text-purple-200 bg-slate-800/80 rounded-lg hover:bg-slate-700"> &larr; Voltar ao Grimório</button>
-                <article class="p-6 md:p-8 rounded-2xl glass-effect">
+                <article id="class-article" data-class-id="${classItem.id}" class="p-6 md:p-8 rounded-2xl glass-effect">
                     <h1 class="text-4xl md:text-5xl font-fancy text-purple-200 mb-4 border-b-2 border-purple-800/50 pb-4">${classItem.title}</h1>
                     <p class="text-slate-400 italic mb-8">${classItem.description}</p>
                     <div class="prose-custom">${autoFormatText(classItem.content)}</div>
                 </article>
-                ${currentUser?.isAdmin ? `<div class="mt-8 text-right"><button id="delete-post-detail-btn" data-delete-id="${classItem.id}" class="bg-red-800 hover:bg-red-700 font-bold py-2 px-4 rounded-lg">Banir Feitiço</button></div>` : ''}
+                <div id="comments-container" class="mt-12"></div>
+                ${currentUser?.isAdmin ? `<div class="mt-8 flex justify-end gap-4">
+                    <button id="edit-post-detail-btn" data-edit-id="${classItem.id}" class="bg-blue-800 hover:bg-blue-700 font-bold py-2 px-4 rounded-lg">Editar Feitiço</button>
+                    <button id="delete-post-detail-btn" data-delete-id="${classItem.id}" class="bg-red-800 hover:bg-red-700 font-bold py-2 px-4 rounded-lg">Banir Feitiço</button>
+                </div>` : ''}
+            </div>
+        `;
+        
+        const CommentsView = (comments) => `
+            <div class="p-6 rounded-xl glass-effect border-purple-900/50">
+                <h3 class="text-xl font-fancy text-purple-300 mb-6">Círculo de Discussão</h3>
+                <form id="comment-form" class="flex items-start gap-4 mb-8">
+                    <textarea name="comment-text" required placeholder="Partilhe a sua dúvida ou experiência..." class="flex-grow w-full px-4 py-2 bg-slate-800 rounded-lg h-16"></textarea>
+                    <button type="submit" class="h-16 px-6 font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700">Enviar</button>
+                </form>
+                <div id="comments-list" class="space-y-6">
+                    ${comments.length > 0 ? comments.map(c => `
+                        <div class="flex gap-4">
+                            <div class="flex-shrink-0 w-10 h-10 bg-purple-900/50 rounded-full flex items-center justify-center font-bold text-purple-300">${c.userEmail.charAt(0).toUpperCase()}</div>
+                            <div class="flex-grow">
+                                <div class="flex justify-between items-center">
+                                    <p class="font-semibold text-purple-300">${c.userEmail}</p>
+                                    ${currentUser?.isAdmin ? `<button data-comment-id="${c.id}" class="delete-comment-btn p-1 text-slate-500 hover:text-red-500">✖</button>` : ''}
+                                </div>
+                                <p class="text-xs text-slate-500 mb-2">${new Date(c.createdAt.seconds * 1000).toLocaleString()}</p>
+                                <p class="text-slate-300">${c.text}</p>
+                            </div>
+                        </div>
+                    `).join('') : '<p class="text-center text-slate-500">Nenhuma discussão foi iniciada. Seja o primeiro a invocar um pensamento!</p>'}
+                </div>
             </div>
         `;
 
         const handleLogin = async (email, password) => {
-            render(LoginView('', true));
+            render(PreloaderView());
             const q = query(collection(db, "users"), where("email", "==", email), limit(1));
             try {
                 const snapshot = await getDocs(q);
@@ -248,7 +359,9 @@
                 const userDoc = snapshot.docs[0].data();
                 if (userDoc.passwordHash === simpleHash(password)) {
                     currentUser = { id: snapshot.docs[0].id, ...userDoc };
-                    loadDashboard();
+                    setTimeout(() => {
+                        loadDashboard();
+                    }, 3000); // Aumentado para dar tempo à animação completa
                 } else {
                     render(LoginView('A senha está incorreta. A magia falhou.'));
                 }
@@ -272,7 +385,7 @@
             try {
                 await addDoc(collection(db, "users"), {
                     email, passwordHash: simpleHash(password),
-                    isAdmin: false, accessibleSections: sections, createdAt: new Date()
+                    isAdmin: false, accessibleSections: sections, completedClasses: [], createdAt: new Date()
                 });
                 document.getElementById('admin-panel-container').innerHTML = AdminPanel({ userMessage: `Conta criada para ${email}!` });
             } catch (err) {
@@ -292,6 +405,20 @@
                 document.getElementById('admin-panel-container').innerHTML = AdminPanel({ postMessage: 'Erro ao inscrever o feitiço.', isPostError: true });
              }
         };
+        
+        const handleUpdatePost = async (postId, sectionId, title, description, content) => {
+            const classesCollectionPath = `artifacts/${appIdName}/public/data/classes`;
+            const postRef = doc(db, classesCollectionPath, postId);
+            try {
+                await updateDoc(postRef, {
+                    sectionId, title, description, content
+                });
+                loadDashboard();
+            } catch (error) {
+                console.error("Erro ao atualizar o post:", error);
+                alert("Não foi possível guardar as alterações.");
+            }
+        };
 
         const handleDeletePost = async (postId) => {
             const classesCollectionPath = `artifacts/${appIdName}/public/data/classes`;
@@ -303,11 +430,46 @@
             }
         };
         
+        const handleDeleteComment = async (commentId) => {
+            if (!confirm("Tem a certeza que quer banir este comentário?")) return;
+            try {
+                await deleteDoc(doc(db, "comments", commentId));
+            } catch (error) {
+                console.error("Erro ao excluir comentário:", error);
+                alert("Não foi possível banir o comentário.");
+            }
+        };
+        
+        const handlePostComment = async (postId, text) => {
+            if(!text.trim()) return;
+            try {
+                await addDoc(collection(db, "comments"), {
+                    postId,
+                    text,
+                    userId: currentUser.id,
+                    userEmail: currentUser.email,
+                    createdAt: new Date()
+                });
+                document.querySelector('#comment-form textarea').value = '';
+            } catch(error) {
+                console.error("Erro ao publicar comentário:", error);
+                alert("Não foi possível enviar o seu pensamento.");
+            }
+        };
+
         const handleDeleteClick = (event) => {
             event.stopPropagation();
-            const button = event.currentTarget;
             if (confirm(`Tem a certeza que quer banir este feitiço? A ação é irreversível.`)) {
-                 handleDeletePost(button.dataset.deleteId);
+                 handleDeletePost(event.currentTarget.dataset.deleteId);
+            }
+        };
+        
+        const handleEditClick = (event) => {
+            event.stopPropagation();
+            const postId = event.currentTarget.dataset.editId;
+            const postToEdit = currentClasses.find(c => c.id === postId);
+            if(postToEdit) {
+                render(EditPostView(postToEdit));
             }
         };
 
@@ -321,6 +483,32 @@
             if(classItem) render(ClassDetailView(classItem));
         };
         
+        const loadCommentsForPost = (postId) => {
+            const commentsContainer = document.getElementById('comments-container');
+            if(!commentsContainer) return;
+
+            const q = query(collection(db, "comments"), where("postId", "==", postId));
+            
+            onSnapshot(q, (snapshot) => {
+                const comments = [];
+                snapshot.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
+                
+                comments.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
+                
+                commentsContainer.innerHTML = CommentsView(comments);
+                
+                document.getElementById('comment-form')?.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const text = e.target.elements['comment-text'].value;
+                    handlePostComment(postId, text);
+                });
+                document.querySelectorAll('.delete-comment-btn').forEach(btn => btn.addEventListener('click', (e) => handleDeleteComment(e.currentTarget.dataset.commentId)));
+            }, (error) => {
+                console.error("Erro ao carregar comentários:", error);
+                commentsContainer.innerHTML = `<p class="text-center text-red-400">Não foi possível carregar o Círculo de Discussão.</p>`
+            });
+        };
+
         const loadDashboard = () => {
             const classesCollectionPath = `artifacts/${appIdName}/public/data/classes`;
             onSnapshot(query(collection(db, classesCollectionPath)), (snapshot) => {
@@ -353,8 +541,30 @@
                 handleCreatePost(e.target.elements['post-section'].value, e.target.elements['post-title'].value, e.target.elements['post-description'].value, e.target.elements['post-content'].value);
             });
             
+            const editPostForm = document.getElementById('edit-post-form');
+            if(editPostForm) {
+                editPostForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const postId = e.target.dataset.postId;
+                    handleUpdatePost(
+                        postId,
+                        e.target.elements['post-section'].value,
+                        e.target.elements['post-title'].value,
+                        e.target.elements['post-description'].value,
+                        e.target.elements['post-content'].value
+                    );
+                });
+            }
+            
+            const article = document.getElementById('class-article');
+            if (article) {
+                loadCommentsForPost(article.dataset.classId);
+            }
+
+            document.getElementById('cancel-edit-btn')?.addEventListener('click', () => render(DashboardView()));
             document.querySelectorAll('.delete-post-btn, #delete-post-detail-btn').forEach(btn => btn.addEventListener('click', handleDeleteClick));
-            document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', (e) => { if(!e.target.closest('.delete-post-btn')) showClassDetails(card.dataset.classId)}));
+            document.querySelectorAll('.edit-post-btn, #edit-post-detail-btn').forEach(btn => btn.addEventListener('click', handleEditClick));
+            document.querySelectorAll('.class-card').forEach(card => card.addEventListener('click', (e) => { if(!e.target.closest('.delete-post-btn') && !e.target.closest('.edit-post-btn')) showClassDetails(card.dataset.classId)}));
             document.getElementById('back-to-dashboard')?.addEventListener('click', () => render(DashboardView()));
         };
 
@@ -367,12 +577,12 @@
                     passwordHash: simpleHash("senhaadmin"),
                     isAdmin: true,
                     accessibleSections: Object.keys(SESSIONS),
+                    completedClasses: [],
                     createdAt: new Date()
                 });
             }
         };
 
-        // --- NOVO: LÓGICA DAS PARTÍCULAS ---
         const setupParticleCanvas = () => {
             const canvas = document.getElementById('particle-canvas');
             const ctx = canvas.getContext('2d');
@@ -384,15 +594,15 @@
             };
 
             const createParticles = () => {
-                const particleCount = 25; // Número baixo para ser subtil
+                const particleCount = 25;
                 for(let i = 0; i < particleCount; i++) {
                     particles.push({
                         x: Math.random() * canvas.width,
                         y: Math.random() * canvas.height,
                         vx: 0,
-                        vy: Math.random() * -0.3 - 0.1, // Movimento lento para cima
+                        vy: Math.random() * -0.3 - 0.1,
                         radius: Math.random() * 1.5 + 0.5,
-                        color: `rgba(216, 180, 254, ${Math.random() * 0.5 + 0.2})` // Tons de roxo/lavanda
+                        color: `rgba(216, 180, 254, ${Math.random() * 0.5 + 0.2})`
                     });
                 }
             };
@@ -405,7 +615,6 @@
                         p.y = canvas.height + p.radius;
                         p.x = Math.random() * canvas.width;
                     }
-
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
                     ctx.fillStyle = p.color;
